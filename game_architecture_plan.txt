@@ -1,0 +1,80 @@
+Game Architecture and Implementation Plan
+========================================
+
+Overview:
+---------
+A browser-based multiplayer guessing game where players join a lobby via a code (no authentication required). Each round, all but one player see a full prompt (e.g., "What animal would you pick to be on your side in case of a zombie apocalypse?"). The odd player only sees the category (e.g., "Animal"). After everyone submits, players guess who was missing the full prompt. The game is played over Discord for voice/chat, but the game logic and UI are in-browser.
+
+Tech Stack:
+-----------
+- Frontend: React (TypeScript), TailwindCSS
+- Backend: Minimal Node.js server (TypeScript, Express or similar), using WebSockets (e.g., socket.io) for real-time communication
+- No database (in-memory storage for lobbies/games)
+- No authentication (lobby code only)
+- Hosting: Can be deployed on a free/cheap service (e.g., Vercel/Netlify for frontend, Fly.io/Render/Glitch for backend)
+
+Steps & Architecture:
+---------------------
+
+1. **Lobby System**
+   - Players can create a new lobby (generates a unique code) or join an existing one via code.
+   - Lobby state is stored in-memory on the server (lobby code, player list, game state).
+   - No persistent storage; lobbies are lost if the server restarts.
+
+2. **Player Management**
+   - Players enter a nickname when joining (no login/auth).
+   - Each player is assigned a unique ID (socket connection ID).
+   - Player list is broadcast to all lobby members.
+
+3. **Game Flow**
+   - When all players are ready, the host starts the game.
+   - Each round:
+     a. Server randomly selects a prompt and a category.
+     b. One player is randomly chosen to only see the category; others see the full prompt.
+     c. Players submit their answers.
+     d. After all submissions, answers are revealed and players vote/guess who was missing the prompt.
+     e. Points are awarded (optional: for correct guesses, for fooling others, etc.).
+     f. Next round or end game.
+
+4. **Frontend**
+   - React app with Tailwind for styling.
+   - Pages/Views:
+     - Home (create/join lobby)
+     - Lobby (waiting room, player list, start game)
+     - Game (prompt display, answer submission, voting/guessing, results)
+     - End screen (final scores, play again)
+   - Real-time updates via WebSockets.
+
+5. **Backend**
+   - Node.js server with WebSocket support (socket.io or ws).
+   - Handles lobby creation/joining, game state, prompt distribution, answer collection, voting, and scoring.
+   - Minimal REST endpoints (if any; most logic via WebSockets).
+   - In-memory storage for lobbies and game state.
+
+6. **Prompts & Categories**
+   - Prompts and categories are stored in a static file or in code (no DB needed).
+   - Server randomly selects prompts each round.
+
+7. **Security & Abuse Prevention**
+   - Basic validation (e.g., max players per lobby, max nickname length).
+   - Lobbies auto-expire after inactivity.
+   - No authentication, so no persistent user data.
+
+8. **Deployment**
+   - Frontend: Deploy to Vercel/Netlify.
+   - Backend: Deploy to Fly.io/Render/Glitch (or similar, free tier).
+   - CORS configured to allow frontend-backend communication.
+
+9. **Optional Enhancements**
+   - Add sound effects/animations.
+   - Allow custom prompts.
+   - Add simple analytics (page views, games played).
+   - Add admin controls for host (kick player, end game, etc.).
+
+Summary:
+--------
+- Minimal server resources: in-memory, no DB, no auth.
+- Real-time via WebSockets.
+- Lobby code system for joining.
+- Stateless, ephemeral lobbies.
+- All logic handled server-side, UI/UX in React+Tailwind. 
