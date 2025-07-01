@@ -94,6 +94,21 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("startGame", (code: string, callback) => {
+    console.log(`Client ${socket.id} starting game in lobby: ${code}`);
+    const lobby = lobbies[code];
+    if (lobby && lobby.players.length > 1) {
+      // Game can start only if there are at least 2 players
+      io.to(code).emit("gameStarted");
+      callback({ success: true });
+    } else {
+      callback({
+        success: false,
+        error: "Not enough players to start the game",
+      });
+    }
+  });
+
   socket.on("game-message", (code: string, message: unknown) => {
     console.log(`Client ${socket.id} sending message to lobby: ${code}`);
     const lobby = lobbies[code];

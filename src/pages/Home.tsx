@@ -18,7 +18,6 @@ const Home = () => {
       setError("Socket connection is not established. Please try again later.");
       return;
     }
-    console.log(socket);
     socket.emit("createLobby", nickname, (response: { code: string }) => {
       console.log("Lobby created:", response);
       if (response.code) {

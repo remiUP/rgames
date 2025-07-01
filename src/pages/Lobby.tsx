@@ -9,16 +9,11 @@ const Lobby = () => {
   const navigate = useNavigate();
   const { socket } = useSocket();
 
-  const fetchPlayers = () => {
-    const code = localStorage.getItem("lobbyCode") || "";
-    if (code) {
-      socket?.emit("fetchPlayers", code, (players: Player[]) => {
-        console.log("Fetched players:", players);
-        setPlayers(players);
-      });
-    } else {
-      navigate("/");
-    }
+  const fetchPlayers = (code: string) => {
+    socket?.emit("fetchPlayers", code, (players: Player[]) => {
+      console.log("Fetched players:", players);
+      setPlayers(players);
+    });
   };
 
   const handleStartGame = () => {
@@ -32,6 +27,7 @@ const Lobby = () => {
   };
 
   useEffect(() => {
+    if (!socket) return;
     const code = localStorage.getItem("lobbyCode") || "";
     const nick = localStorage.getItem("nickname") || "";
     setLobbyCode(code);
@@ -39,12 +35,8 @@ const Lobby = () => {
       navigate("/");
       return;
     }
-  }, [navigate]);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    fetchPlayers();
+    fetchPlayers(code);
 
     socket.on("playerJoined", (player: Player) => {
       setPlayers((prev) => [...prev, player]);
@@ -54,9 +46,21 @@ const Lobby = () => {
       setPlayers((prev) => prev.filter((p) => p.id !== playerId));
     });
 
+    socket.on("gameStarted", () => {
+      const code = localStorage.getItem("lobbyCode");
+      if (!code) {
+        console.error("Lobby code not found in localStorage");
+        return;
+      }
+      console.log("Game started, navigating to game page");
+      console.log("Lobby code:", code);
+      navigate(`/game/${code}`);
+    });
+
     return () => {
       socket.off("playerJoined");
       socket.off("playerLeft");
+      socket.off("gameStarted");
     };
   }, [socket, navigate]);
 
