@@ -2,7 +2,7 @@ import cors from "cors";
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { Lobby } from "../../DTO";
+import { Lobby, Player } from "../../DTO";
 
 const app = express();
 const server = createServer();
@@ -25,6 +25,20 @@ const PORT = process.env.PORT || 3001;
 io.on("connection", (socket) => {
   console.log(`New client connected: ${socket.id}`);
 
+  socket.on("disconnect", () => {
+    console.log(`Client disconnected: ${socket.id}`);
+    // Clean up lobbies if necessary
+    for (const code in lobbies) {
+      const lobby = lobbies[code];
+      lobby.players = lobby.players.filter((p) => p.id !== socket.id);
+      if (lobby.players.length === 0) {
+        delete lobbies[code]; // Remove empty lobbies
+      } else {
+        io.to(code).emit("playerLeft", socket.id);
+      }
+    }
+  });
+
   socket.on("createLobby", (nickname: string, callback) => {
     console.log(
       `Client ${socket.id} creating lobby with nickname: ${nickname}`
@@ -32,7 +46,7 @@ io.on("connection", (socket) => {
     const code = generateLobbyCode();
     const lobby: Lobby = {
       code,
-      players: [{ id: socket.id, nickname }],
+      players: [{ id: socket.id, nickname, isHost: true }],
       state: {},
     };
     lobbies[code] = lobby;
@@ -47,7 +61,7 @@ io.on("connection", (socket) => {
     console.log(lobbies);
     const lobby = lobbies[code];
     if (lobby) {
-      const player = { id: socket.id, nickname };
+      const player: Player = { id: socket.id, nickname, isHost: false };
       lobby.players.push(player);
       callback({ success: true, error: null });
       socket.join(code);
@@ -100,20 +114,6 @@ function generateLobbyCode(length = 4) {
   }
   return code;
 }
-
-io.on("disconnect", (socket) => {
-  console.log(`Client disconnected: ${socket.id}`);
-  // Clean up lobbies if necessary
-  for (const code in lobbies) {
-    const lobby = lobbies[code];
-    lobby.players = lobby.players.filter((p) => p.id !== socket.id);
-    if (lobby.players.length === 0) {
-      delete lobbies[code]; // Remove empty lobbies
-    } else {
-      io.to(code).emit("playerLeft", socket.id);
-    }
-  }
-});
 
 app.post("/create-lobby", (req, res) => {
   const code = generateLobbyCode();

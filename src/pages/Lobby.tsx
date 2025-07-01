@@ -1,14 +1,35 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { Player } from "../../DTO";
 import { useSocket } from "../contexts/SocketContext";
 
 const Lobby = () => {
-  const [players, setPlayers] = useState<{ id: string; nickname: string }[]>(
-    []
-  );
+  const [players, setPlayers] = useState<Player[]>([]);
   const [lobbyCode, setLobbyCode] = useState("");
   const navigate = useNavigate();
   const { socket } = useSocket();
+
+  const fetchPlayers = () => {
+    const code = localStorage.getItem("lobbyCode") || "";
+    if (code) {
+      socket?.emit("fetchPlayers", code, (players: Player[]) => {
+        console.log("Fetched players:", players);
+        setPlayers(players);
+      });
+    } else {
+      navigate("/");
+    }
+  };
+
+  const handleStartGame = () => {
+    socket?.emit("startGame", lobbyCode, (response: { success: boolean }) => {
+      if (response.success) {
+        navigate(`/game/${lobbyCode}`);
+      } else {
+        console.error("Failed to start game");
+      }
+    });
+  };
 
   useEffect(() => {
     const code = localStorage.getItem("lobbyCode") || "";
@@ -18,36 +39,27 @@ const Lobby = () => {
       navigate("/");
       return;
     }
-    socket?.on("playerJoined", (player: { id: string; nickname: string }) => {
-      console.log("Player joined:", player);
-      if (players.some((p) => p.id === player.id)) {
-        return;
-      }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    fetchPlayers();
+
+    socket.on("playerJoined", (player: Player) => {
       setPlayers((prev) => [...prev, player]);
     });
 
+    socket.on("playerLeft", (playerId: string) => {
+      setPlayers((prev) => prev.filter((p) => p.id !== playerId));
+    });
+
     return () => {
-      socket?.off("playerJoined");
+      socket.off("playerJoined");
+      socket.off("playerLeft");
     };
   }, [socket, navigate]);
 
-  useEffect(() => {
-    const code = localStorage.getItem("lobbyCode") || "";
-    if (code) {
-      socket?.emit(
-        "fetchPlayers",
-        code,
-        (players: { id: string; nickname: string }[]) => {
-          console.log("Fetched players:", players);
-          setPlayers(players);
-        }
-      );
-    } else {
-      navigate("/");
-    }
-  }, [socket, navigate]);
-
-  console.log("Lobby players:", players);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-100 to-blue-200">
       <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
@@ -72,7 +84,7 @@ const Lobby = () => {
               <li key={p.id} className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-400 rounded-full inline-block"></span>
                 <span className="font-medium">{p.nickname}</span>
-                {p.id === players[0]?.id && (
+                {p?.isHost && (
                   <span className="ml-2 text-xs text-yellow-500">(Host)</span>
                 )}
               </li>
@@ -82,7 +94,19 @@ const Lobby = () => {
         <div className="text-center mb-4 text-gray-500">
           Waiting for players to join...
         </div>
-        {/* Host-only Start Game button will go here */}
+        {players.find(
+          (p) =>
+            p.isHost &&
+            localStorage.getItem("nickname") === p.nickname &&
+            players.length > 1
+        ) && (
+          <button
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+            onClick={handleStartGame}
+          >
+            Start Game
+          </button>
+        )}
       </div>
       <footer className="mt-8 text-gray-400 text-sm">
         Share the code with friends to join!
